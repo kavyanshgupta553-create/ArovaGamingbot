@@ -1,1 +1,47 @@
-[]
+[
+    {
+        "level": "72",
+        "tier": "Platinum III",
+        "skins": "M416 Glacier, AKM Glacier, DP-28 Coral",
+        "outfits": "4 Legendary, 2 Epic Sets",
+        "uc": "~12,000 UC",
+        "price": 2500,
+        "photo": "https://i.imgur.com/3QfIzXL.jpeg"
+    },
+    {
+        "level": "57",
+        "tier": "Gold I",
+        "skins": "M416 Pharaoh, UMP45 Coral, Kar98 Fool's Gold",
+        "outfits": "2 Legendary, 3 Epic Sets",
+        "uc": "~5,500 UC",
+        "price": 1300,
+        "photo": "https://i.imgur.com/FwXmjTH.jpeg"
+    },
+    {
+        "level": "89",
+        "tier": "Diamond II",
+        "skins": "M416 Glacier, AWM Frost, Groza Egg, Mini14 Coral",
+        "outfits": "9 Legendary, 5 Epic Sets",
+        "uc": "~22,000 UC",
+        "price": 5500,
+        "photo": "https://i.imgur.com/vQk3nH1.jpeg"
+    },
+    {
+        "level": "45",
+        "tier": "Silver II",
+        "skins": "M416 Blood Raven, S12K Flaming",
+        "outfits": "1 Legendary",
+        "uc": "~2,000 UC",
+        "price": 700,
+        "photo": "https://i.imgur.com/3QfIzXL.jpeg"
+    },
+    {
+        "level": "95",
+        "tier": "Ace",
+        "skins": "M416 Glacier, AWM Flaming, Groza Egg, DP-28 Glacier, Vector Glacier",
+        "outfits": "15 Legendary, 8 Epic, 1 Mythic Set",
+        "uc": "~40,000 UC",
+        "price": 9999,
+        "photo": "https://i.imgur.com/vQk3nH1.jpeg"
+    }
+]
