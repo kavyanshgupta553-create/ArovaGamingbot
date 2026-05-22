@@ -143,7 +143,7 @@ async def show_main_menu(target, context):
 
 
 # ==========================================
-# /start — any message also triggers menu
+# /start + any message triggers menu
 # ==========================================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -164,18 +164,16 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     data = query.data
 
-    # ---------- BUY ----------
     if data == "buy":
         await query.edit_message_text(
             "🛒 *Buy a BGMI ID*\n\n"
             "💰 Enter your *budget* in ₹ (numbers only)\n"
             "📌 Example: `2000`\n\n"
-            "We'll show IDs at your budget and up to ₹500 above for best deals! 👇",
+            "We will show IDs at your budget and up to ₹500 above for best deals! 👇",
             parse_mode="Markdown"
         )
         return BUY_BUDGET
 
-    # ---------- SELL ----------
     elif data == "sell":
         kb = [
             [InlineKeyboardButton(
@@ -189,18 +187,17 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"Contact *@{ADMIN2_USERNAME}* directly!\n\n"
             "He will ask for your details and give the best price.\n\n"
             "📋 *Keep these ready:*\n"
-            "• BGMI ID & Level\n"
+            "• BGMI ID and Level\n"
             "• Current Tier\n"
-            "• Gun Skins & Outfits\n"
+            "• Gun Skins and Outfits\n"
             "• UC Spent (approx)\n"
             "• Screenshot of your account\n\n"
-            "⏰ Response time: *10–30 minutes*",
+            "⏰ Response time: *10 to 30 minutes*",
             reply_markup=InlineKeyboardMarkup(kb),
             parse_mode="Markdown"
         )
         return CHOOSING
 
-    # ---------- HELP ----------
     elif data == "help":
         kb = [
             [InlineKeyboardButton(
@@ -210,20 +207,19 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("🔙  Back", callback_data="back")],
         ]
         await query.edit_message_text(
-            "🆘 *Help & Support*\n\n"
+            "🆘 *Help and Support*\n\n"
             f"Contact *@{ADMIN1_USERNAME}* for any issue!\n\n"
             "We help with:\n"
             "• Payment problems\n"
             "• Account transfer issues\n"
             "• General queries\n"
             "• After-sale support\n\n"
-            "⏰ Response time: *10–30 minutes*",
+            "⏰ Response time: *10 to 30 minutes*",
             reply_markup=InlineKeyboardMarkup(kb),
             parse_mode="Markdown"
         )
         return CHOOSING
 
-    # ---------- BACK ----------
     elif data == "back":
         await show_main_menu(query, context)
         return CHOOSING
@@ -232,7 +228,7 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ==========================================
-# BUY — receive budget, show matching IDs
+# BUY — budget input, show IDs
 # ==========================================
 
 async def buy_budget(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -246,15 +242,13 @@ async def buy_budget(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return BUY_BUDGET
 
-    budget = int(text)
-    upper  = budget + 500
-    ids    = load_ids()
-
+    budget  = int(text)
+    upper   = budget + 500
+    ids     = load_ids()
     exact   = [i for i in ids if i["price"] <= budget]
     stretch = [i for i in ids if budget < i["price"] <= upper]
     matched = exact + stretch
 
-    # Nothing found
     if not matched:
         kb = [
             [InlineKeyboardButton(
@@ -264,14 +258,13 @@ async def buy_budget(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("🔙  Main Menu", callback_data="back")],
         ]
         await update.message.reply_text(
-            f"😔 *No IDs available in ₹{budget} budget right now.*\n\n"
+            f"😔 *No IDs available for ₹{budget} right now.*\n\n"
             "Contact admin — a custom deal might be possible! 👇",
             reply_markup=InlineKeyboardMarkup(kb),
             parse_mode="Markdown"
         )
         return CHOOSING
 
-    # Header
     await update.message.reply_text(
         f"✅ *Found {len(matched)} ID(s) for you!*\n"
         f"💰 Your budget: ₹{budget}  |  🔍 Showing up to ₹{upper}\n\n"
@@ -279,7 +272,6 @@ async def buy_budget(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode="Markdown"
     )
 
-    # Send each ID
     for item in matched:
         is_stretch = item["price"] > budget
         tag = "⚡ *Just Above Budget — Great Value!*\n\n" if is_stretch else ""
@@ -317,14 +309,13 @@ async def buy_budget(update: Update, context: ContextTypes.DEFAULT_TYPE):
                     parse_mode="Markdown"
                 )
         except Exception as e:
-            logger.warning(f"Photo failed, sending text instead: {e}")
+            logger.warning(f"Photo failed, sending text: {e}")
             await update.message.reply_text(
                 caption,
                 reply_markup=InlineKeyboardMarkup(kb),
                 parse_mode="Markdown"
             )
 
-    # Footer
     kb = [[InlineKeyboardButton("🔙  Main Menu", callback_data="back")]]
     await update.message.reply_text(
         f"👆 Pick your favourite ID above!\n\n"
@@ -336,21 +327,19 @@ async def buy_budget(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ==========================================
-# ADMIN — /addid command
+# ADMIN — /addid
 # ==========================================
 
 async def add_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id not in [ADMIN1_ID, ADMIN2_ID]:
         return
-
     await update.message.reply_text(
         "📝 *Add New ID*\n\n"
         "Send details in this exact format:\n\n"
         "`Level|Tier|Skins|Outfits|UC|Price`\n\n"
         "📌 Example:\n"
         "`72|Platinum III|M416 Glacier, AKM|4 Legendary|12000 UC|2500`\n\n"
-        "📸 *To add a photo:*\n"
-        "Send the photo first, then reply to it with the above format.",
+        "📸 To add a photo: send the photo first, then *reply to it* with the format above.",
         parse_mode="Markdown"
     )
     return ADMIN_ADD
@@ -359,13 +348,11 @@ async def add_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def save_new_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id not in [ADMIN1_ID, ADMIN2_ID]:
         return CHOOSING
-
     try:
         parts = update.message.text.strip().split("|")
         if len(parts) != 6:
             await update.message.reply_text(
-                "❌ *Wrong format!*\n\n"
-                "Use exactly: `Level|Tier|Skins|Outfits|UC|Price`",
+                "❌ *Wrong format!*\n\nUse: `Level|Tier|Skins|Outfits|UC|Price`",
                 parse_mode="Markdown"
             )
             return ADMIN_ADD
@@ -389,16 +376,14 @@ async def save_new_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
         save_ids(data)
 
         await update.message.reply_text(
-            f"✅ *ID Added Successfully!*\n\n"
-            f"📊 Level: {level}\n"
-            f"🏆 Tier: {tier}\n"
-            f"💰 Price: ₹{price}",
+            f"✅ *ID Added!*\n\n"
+            f"📊 Level: {level} | 🏆 Tier: {tier} | 💰 ₹{price}",
             parse_mode="Markdown"
         )
         return CHOOSING
 
     except ValueError:
-        await update.message.reply_text("❌ Price must be a number!")
+        await update.message.reply_text("❌ Price must be a number! Try again.")
         return ADMIN_ADD
     except Exception as e:
         await update.message.reply_text(f"❌ Error: {e}")
@@ -406,64 +391,50 @@ async def save_new_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ==========================================
-# ADMIN — /listids command
+# ADMIN — /listids
 # ==========================================
 
 async def list_ids(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id not in [ADMIN1_ID, ADMIN2_ID]:
         return
-
     data = load_ids()
     if not data:
         await update.message.reply_text("📭 No IDs in database.")
         return
-
-    msg = f"🎮 *{SHOP_NAME} — ID List*\n\n"
+    msg = f"🎮 *{SHOP_NAME} — All IDs*\n\n"
     for i, item in enumerate(data, 1):
-        msg += (
-            f"{i}. ₹{item['price']} | "
-            f"{item['tier']} | "
-            f"Level {item['level']}\n"
-        )
-
+        msg += f"{i}. ₹{item['price']} | {item['tier']} | Level {item['level']}\n"
     await update.message.reply_text(msg, parse_mode="Markdown")
 
 
 # ==========================================
-# ADMIN — /deleteid command
+# ADMIN — /deleteid <number>
 # ==========================================
 
 async def delete_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id not in [ADMIN1_ID, ADMIN2_ID]:
         return
-
     if not context.args or not context.args[0].isdigit():
         await update.message.reply_text(
-            "Usage: `/deleteid <number>`\n"
-            "Use /listids to see ID numbers.",
+            "Usage: `/deleteid <number>`\nUse /listids to see numbers.",
             parse_mode="Markdown"
         )
         return
-
     index = int(context.args[0]) - 1
     data  = load_ids()
-
     if index < 0 or index >= len(data):
-        await update.message.reply_text("❌ Invalid ID number.")
+        await update.message.reply_text("❌ Invalid number.")
         return
-
     removed = data.pop(index)
     save_ids(data)
-
     await update.message.reply_text(
-        f"✅ *Deleted:* Level {removed['level']} | "
-        f"{removed['tier']} | ₹{removed['price']}",
+        f"✅ Deleted: Level {removed['level']} | {removed['tier']} | ₹{removed['price']}",
         parse_mode="Markdown"
     )
 
 
 # ==========================================
-# FALLBACK — any random message → menu
+# FALLBACK — any random text shows menu
 # ==========================================
 
 async def any_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -476,7 +447,7 @@ async def any_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ==========================================
 
 def main():
-    print(f"🚀 {SHOP_NAME} Bot starting...")
+    print(f"Starting {SHOP_NAME} Bot...")
 
     app = Application.builder().token(BOT_TOKEN).build()
 
@@ -503,6 +474,7 @@ def main():
             MessageHandler(filters.ALL, start),
         ],
         allow_reentry=True,
+        per_message=False,
     )
 
     app.add_handler(conv)
@@ -510,7 +482,7 @@ def main():
     app.add_handler(CommandHandler("listids",  list_ids))
     app.add_handler(CommandHandler("deleteid", delete_id))
 
-    print(f"✅ {SHOP_NAME} Bot is live!")
+    print(f"{SHOP_NAME} Bot is live!")
     app.run_polling(drop_pending_updates=True)
 
 
