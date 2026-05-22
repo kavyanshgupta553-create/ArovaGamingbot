@@ -428,9 +428,6 @@ def main():
 
 if __name__ == "__main__":
     main()
-            [InlineKeyboardButton("🔙 Back", callback_data="back")]
-        ]
-
         await query.edit_message_text(
             "🆘 Help & Support",
             reply_markup=InlineKeyboardMarkup(keyboard)
