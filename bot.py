@@ -427,7 +427,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()            ],
+    main()
             [InlineKeyboardButton("🔙 Back", callback_data="back")]
         ]
 
