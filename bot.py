@@ -16,15 +16,19 @@ from telegram.ext import (
 #        AROVA GAMING — BGMI ID BOT
 # ==========================================
 
-BOT_TOKEN = os.environ.get("BOT_TOKEN", "8471398768:AAE4uNoCwK1GzGMc_qVpVFCAYX56QOuprTY")
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "PASTE_YOUR_TOKEN_HERE")
 
-ADMIN1_ID       = 7428034309
+ADMIN1_ID       = 7428034309      # Buying + Help
 ADMIN1_USERNAME = "Kavyanshh2009"
 
-ADMIN2_ID       = 7879442639
+ADMIN2_ID       = 7879442639      # Selling
 ADMIN2_USERNAME = "Aayushrajput14"
 
 SHOP_NAME = "Arova Gaming"
+
+# ==========================================
+# LOGGING
+# ==========================================
 
 logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s",
@@ -32,14 +36,19 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# States
+# ==========================================
+# STATES
+# ==========================================
+
 CHOOSING   = 1
 BUY_BUDGET = 2
 ADMIN_ADD  = 3
 
 # ==========================================
-# DATABASE
+# JSON DATABASE
 # ==========================================
+
+DB_FILE = "ids.json"
 
 SAMPLE_IDS = [
     {
@@ -49,7 +58,7 @@ SAMPLE_IDS = [
         "outfits": "4 Legendary, 2 Epic Sets",
         "uc": "~12,000 UC",
         "price": 2500,
-        "photo": None,
+        "photo": "https://i.imgur.com/3QfIzXL.jpeg"
     },
     {
         "level": "57",
@@ -58,7 +67,7 @@ SAMPLE_IDS = [
         "outfits": "2 Legendary, 3 Epic Sets",
         "uc": "~5,500 UC",
         "price": 1300,
-        "photo": None,
+        "photo": "https://i.imgur.com/FwXmjTH.jpeg"
     },
     {
         "level": "89",
@@ -67,7 +76,7 @@ SAMPLE_IDS = [
         "outfits": "9 Legendary, 5 Epic Sets",
         "uc": "~22,000 UC",
         "price": 5500,
-        "photo": None,
+        "photo": "https://i.imgur.com/vQk3nH1.jpeg"
     },
     {
         "level": "45",
@@ -76,7 +85,7 @@ SAMPLE_IDS = [
         "outfits": "1 Legendary",
         "uc": "~2,000 UC",
         "price": 700,
-        "photo": None,
+        "photo": "https://i.imgur.com/3QfIzXL.jpeg"
     },
     {
         "level": "95",
@@ -85,43 +94,29 @@ SAMPLE_IDS = [
         "outfits": "15 Legendary, 8 Epic, 1 Mythic Set",
         "uc": "~40,000 UC",
         "price": 9999,
-        "photo": None,
+        "photo": "https://i.imgur.com/vQk3nH1.jpeg"
     },
 ]
 
-DB_FILE = "ids.json"
-_ids_cache = None
-
 
 def load_ids():
-    global _ids_cache
-    if _ids_cache is not None:
-        return _ids_cache
+    if not os.path.exists(DB_FILE):
+        save_ids(SAMPLE_IDS)
+        return SAMPLE_IDS
     try:
-        if os.path.exists(DB_FILE):
-            with open(DB_FILE, "r") as f:
-                data = json.load(f)
-            if data:
-                _ids_cache = data
-                return _ids_cache
-    except Exception as e:
-        logger.warning(f"Could not load ids.json: {e}")
-    _ids_cache = list(SAMPLE_IDS)
-    return _ids_cache
+        with open(DB_FILE, "r") as f:
+            return json.load(f)
+    except Exception:
+        return SAMPLE_IDS
 
 
 def save_ids(data):
-    global _ids_cache
-    _ids_cache = data
-    try:
-        with open(DB_FILE, "w") as f:
-            json.dump(data, f, indent=4)
-    except Exception as e:
-        logger.warning(f"Could not save: {e}")
+    with open(DB_FILE, "w") as f:
+        json.dump(data, f, indent=4)
 
 
 # ==========================================
-# HELPERS
+# MAIN MENU
 # ==========================================
 
 def main_menu():
@@ -132,58 +127,56 @@ def main_menu():
     ])
 
 
-async def show_menu_message(message):
-    await message.reply_text(
-        f"🎮 Welcome to {SHOP_NAME}!\n\n"
+async def show_main_menu(target, context):
+    text = (
+        f"🎮 *Welcome to {SHOP_NAME}!*\n\n"
         "India's Trusted BGMI ID Marketplace\n\n"
-        "✅  100% Safe and Secure\n"
+        "✅  100% Safe & Secure\n"
         "⚡  Fast Response\n"
         "🔒  Verified Accounts Only\n\n"
-        "What would you like to do? 👇",
-        reply_markup=main_menu(),
+        "What would you like to do? 👇"
     )
-
-
-async def show_menu_query(query):
-    await query.edit_message_text(
-        f"🎮 Welcome to {SHOP_NAME}!\n\n"
-        "India's Trusted BGMI ID Marketplace\n\n"
-        "✅  100% Safe and Secure\n"
-        "⚡  Fast Response\n"
-        "🔒  Verified Accounts Only\n\n"
-        "What would you like to do? 👇",
-        reply_markup=main_menu(),
-    )
+    if hasattr(target, "edit_message_text"):
+        await target.edit_message_text(text, reply_markup=main_menu(), parse_mode="Markdown")
+    else:
+        await target.reply_text(text, reply_markup=main_menu(), parse_mode="Markdown")
 
 
 # ==========================================
-# /start
+# /start — any message also triggers menu
 # ==========================================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data.clear()
-    await show_menu_message(update.message)
+    if update.message:
+        await show_main_menu(update.message, context)
+    else:
+        await show_main_menu(update.callback_query, context)
     return CHOOSING
 
 
 # ==========================================
-# MENU BUTTONS
+# MENU HANDLER
 # ==========================================
 
 async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
+    data = query.data
 
-    if query.data == "buy":
+    # ---------- BUY ----------
+    if data == "buy":
         await query.edit_message_text(
-            "🛒 Buy a BGMI ID\n\n"
-            "Enter your budget in rupees (numbers only)\n\n"
-            "Example: 2000\n\n"
-            "We will show IDs at your budget and up to Rs.500 above!"
+            "🛒 *Buy a BGMI ID*\n\n"
+            "💰 Enter your *budget* in ₹ (numbers only)\n"
+            "📌 Example: `2000`\n\n"
+            "We'll show IDs at your budget and up to ₹500 above for best deals! 👇",
+            parse_mode="Markdown"
         )
         return BUY_BUDGET
 
-    elif query.data == "sell":
+    # ---------- SELL ----------
+    elif data == "sell":
         kb = [
             [InlineKeyboardButton(
                 f"💬  Chat with @{ADMIN2_USERNAME}",
@@ -192,21 +185,23 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("🔙  Back", callback_data="back")],
         ]
         await query.edit_message_text(
-            "💰 Sell Your BGMI ID\n\n"
-            f"Contact @{ADMIN2_USERNAME} directly!\n\n"
+            "💰 *Sell Your BGMI ID*\n\n"
+            f"Contact *@{ADMIN2_USERNAME}* directly!\n\n"
             "He will ask for your details and give the best price.\n\n"
-            "Keep these ready:\n"
-            "• BGMI ID and Level\n"
+            "📋 *Keep these ready:*\n"
+            "• BGMI ID & Level\n"
             "• Current Tier\n"
-            "• Gun Skins and Outfits\n"
+            "• Gun Skins & Outfits\n"
             "• UC Spent (approx)\n"
             "• Screenshot of your account\n\n"
-            "Response time: 10 to 30 minutes",
+            "⏰ Response time: *10–30 minutes*",
             reply_markup=InlineKeyboardMarkup(kb),
+            parse_mode="Markdown"
         )
         return CHOOSING
 
-    elif query.data == "help":
+    # ---------- HELP ----------
+    elif data == "help":
         kb = [
             [InlineKeyboardButton(
                 f"🆘  Contact @{ADMIN1_USERNAME}",
@@ -215,27 +210,29 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("🔙  Back", callback_data="back")],
         ]
         await query.edit_message_text(
-            "🆘 Help and Support\n\n"
-            f"Contact @{ADMIN1_USERNAME} for any issue!\n\n"
+            "🆘 *Help & Support*\n\n"
+            f"Contact *@{ADMIN1_USERNAME}* for any issue!\n\n"
             "We help with:\n"
             "• Payment problems\n"
             "• Account transfer issues\n"
             "• General queries\n"
             "• After-sale support\n\n"
-            "Response time: 10 to 30 minutes",
+            "⏰ Response time: *10–30 minutes*",
             reply_markup=InlineKeyboardMarkup(kb),
+            parse_mode="Markdown"
         )
         return CHOOSING
 
-    elif query.data == "back":
-        await show_menu_query(query)
+    # ---------- BACK ----------
+    elif data == "back":
+        await show_main_menu(query, context)
         return CHOOSING
 
     return CHOOSING
 
 
 # ==========================================
-# BUY — budget handler
+# BUY — receive budget, show matching IDs
 # ==========================================
 
 async def buy_budget(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -243,9 +240,9 @@ async def buy_budget(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if not text.isdigit():
         await update.message.reply_text(
-            "Please enter numbers only!\n"
-            "Example: 2000\n\n"
-            "Try again 👇"
+            "❌ *Numbers only please!*\n"
+            "📌 Example: `2000`\n\nTry again 👇",
+            parse_mode="Markdown"
         )
         return BUY_BUDGET
 
@@ -253,8 +250,11 @@ async def buy_budget(update: Update, context: ContextTypes.DEFAULT_TYPE):
     upper  = budget + 500
     ids    = load_ids()
 
-    matched = [i for i in ids if i["price"] <= upper]
+    exact   = [i for i in ids if i["price"] <= budget]
+    stretch = [i for i in ids if budget < i["price"] <= upper]
+    matched = exact + stretch
 
+    # Nothing found
     if not matched:
         kb = [
             [InlineKeyboardButton(
@@ -264,33 +264,37 @@ async def buy_budget(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("🔙  Main Menu", callback_data="back")],
         ]
         await update.message.reply_text(
-            f"No IDs available for Rs.{budget} right now.\n\n"
-            "Contact admin for a custom deal!",
+            f"😔 *No IDs available in ₹{budget} budget right now.*\n\n"
+            "Contact admin — a custom deal might be possible! 👇",
             reply_markup=InlineKeyboardMarkup(kb),
+            parse_mode="Markdown"
         )
         return CHOOSING
 
+    # Header
     await update.message.reply_text(
-        f"Found {len(matched)} ID(s) for you!\n"
-        f"Budget: Rs.{budget} | Showing up to Rs.{upper}\n\n"
-        "Check details below 👇"
+        f"✅ *Found {len(matched)} ID(s) for you!*\n"
+        f"💰 Your budget: ₹{budget}  |  🔍 Showing up to ₹{upper}\n\n"
+        "Check details below 👇",
+        parse_mode="Markdown"
     )
 
+    # Send each ID
     for item in matched:
         is_stretch = item["price"] > budget
-        tag = "Just Above Budget — Great Value!\n\n" if is_stretch else ""
+        tag = "⚡ *Just Above Budget — Great Value!*\n\n" if is_stretch else ""
 
-        text_card = (
+        caption = (
             f"{tag}"
-            f"BGMI Account — {SHOP_NAME}\n"
-            f"====================\n"
-            f"Level    : {item['level']}\n"
-            f"Tier     : {item['tier']}\n"
-            f"Skins    : {item['skins']}\n"
-            f"Outfits  : {item['outfits']}\n"
-            f"UC Spent : {item['uc']}\n"
-            f"Price    : Rs.{item['price']}\n"
-            f"===================="
+            f"🎮 *BGMI Account — {SHOP_NAME}*\n"
+            f"━━━━━━━━━━━━━━━━━━━━\n"
+            f"📊  Level: *{item['level']}*\n"
+            f"🏆  Tier: *{item['tier']}*\n"
+            f"🔫  Skins: {item['skins']}\n"
+            f"👕  Outfits: {item['outfits']}\n"
+            f"💎  UC Spent: {item['uc']}\n"
+            f"💰  Price: *₹{item['price']}*\n"
+            f"━━━━━━━━━━━━━━━━━━━━"
         )
 
         kb = [[InlineKeyboardButton(
@@ -298,48 +302,56 @@ async def buy_budget(update: Update, context: ContextTypes.DEFAULT_TYPE):
             url=f"https://t.me/{ADMIN1_USERNAME}"
         )]]
 
-        photo = item.get("photo")
-        if photo:
-            try:
+        try:
+            if item.get("photo"):
                 await update.message.reply_photo(
-                    photo=photo,
-                    caption=text_card,
+                    photo=item["photo"],
+                    caption=caption,
                     reply_markup=InlineKeyboardMarkup(kb),
+                    parse_mode="Markdown"
                 )
-                continue
-            except Exception as e:
-                logger.warning(f"Photo failed: {e}")
+            else:
+                await update.message.reply_text(
+                    caption,
+                    reply_markup=InlineKeyboardMarkup(kb),
+                    parse_mode="Markdown"
+                )
+        except Exception as e:
+            logger.warning(f"Photo failed, sending text instead: {e}")
+            await update.message.reply_text(
+                caption,
+                reply_markup=InlineKeyboardMarkup(kb),
+                parse_mode="Markdown"
+            )
 
-        await update.message.reply_text(
-            text_card,
-            reply_markup=InlineKeyboardMarkup(kb),
-        )
-
+    # Footer
+    kb = [[InlineKeyboardButton("🔙  Main Menu", callback_data="back")]]
     await update.message.reply_text(
-        f"Pick your favourite ID and contact admin!\n"
-        f"{SHOP_NAME} — India's Trusted BGMI Store",
-        reply_markup=InlineKeyboardMarkup(
-            [[InlineKeyboardButton("🔙  Main Menu", callback_data="back")]]
-        ),
+        f"👆 Pick your favourite ID above!\n\n"
+        f"🏪 *{SHOP_NAME}* — India's Trusted BGMI Store",
+        reply_markup=InlineKeyboardMarkup(kb),
+        parse_mode="Markdown"
     )
     return CHOOSING
 
 
 # ==========================================
-# ADMIN COMMANDS
+# ADMIN — /addid command
 # ==========================================
 
 async def add_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id not in [ADMIN1_ID, ADMIN2_ID]:
-        await update.message.reply_text("You are not authorized.")
-        return ConversationHandler.END
+        return
 
     await update.message.reply_text(
-        "Send ID details in this format:\n\n"
-        "Level|Tier|Skins|Outfits|UC|Price\n\n"
-        "Example:\n"
-        "72|Platinum III|M416 Glacier, AKM|4 Legendary|12000 UC|2500\n\n"
-        "To add photo: send photo first, then reply to it with format above."
+        "📝 *Add New ID*\n\n"
+        "Send details in this exact format:\n\n"
+        "`Level|Tier|Skins|Outfits|UC|Price`\n\n"
+        "📌 Example:\n"
+        "`72|Platinum III|M416 Glacier, AKM|4 Legendary|12000 UC|2500`\n\n"
+        "📸 *To add a photo:*\n"
+        "Send the photo first, then reply to it with the above format.",
+        parse_mode="Markdown"
     )
     return ADMIN_ADD
 
@@ -352,18 +364,16 @@ async def save_new_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parts = update.message.text.strip().split("|")
         if len(parts) != 6:
             await update.message.reply_text(
-                "Wrong format! Use exactly:\n"
-                "Level|Tier|Skins|Outfits|UC|Price"
+                "❌ *Wrong format!*\n\n"
+                "Use exactly: `Level|Tier|Skins|Outfits|UC|Price`",
+                parse_mode="Markdown"
             )
             return ADMIN_ADD
 
         level, tier, skins, outfits, uc, price = [p.strip() for p in parts]
 
         photo_id = None
-        if (
-            update.message.reply_to_message
-            and update.message.reply_to_message.photo
-        ):
+        if update.message.reply_to_message and update.message.reply_to_message.photo:
             photo_id = update.message.reply_to_message.photo[-1].file_id
 
         data = load_ids()
@@ -379,58 +389,85 @@ async def save_new_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
         save_ids(data)
 
         await update.message.reply_text(
-            f"ID Added Successfully!\n"
-            f"Level: {level} | Tier: {tier} | Rs.{price}"
+            f"✅ *ID Added Successfully!*\n\n"
+            f"📊 Level: {level}\n"
+            f"🏆 Tier: {tier}\n"
+            f"💰 Price: ₹{price}",
+            parse_mode="Markdown"
         )
         return CHOOSING
 
     except ValueError:
-        await update.message.reply_text("Price must be a number! Try again.")
+        await update.message.reply_text("❌ Price must be a number!")
         return ADMIN_ADD
     except Exception as e:
-        await update.message.reply_text(f"Error: {e}")
+        await update.message.reply_text(f"❌ Error: {e}")
         return CHOOSING
 
+
+# ==========================================
+# ADMIN — /listids command
+# ==========================================
 
 async def list_ids(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id not in [ADMIN1_ID, ADMIN2_ID]:
         return
+
     data = load_ids()
     if not data:
-        await update.message.reply_text("No IDs in database.")
+        await update.message.reply_text("📭 No IDs in database.")
         return
-    msg = f"{SHOP_NAME} — All IDs\n\n"
-    for i, item in enumerate(data, 1):
-        msg += f"{i}. Rs.{item['price']} | {item['tier']} | Level {item['level']}\n"
-    await update.message.reply_text(msg)
 
+    msg = f"🎮 *{SHOP_NAME} — ID List*\n\n"
+    for i, item in enumerate(data, 1):
+        msg += (
+            f"{i}. ₹{item['price']} | "
+            f"{item['tier']} | "
+            f"Level {item['level']}\n"
+        )
+
+    await update.message.reply_text(msg, parse_mode="Markdown")
+
+
+# ==========================================
+# ADMIN — /deleteid command
+# ==========================================
 
 async def delete_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id not in [ADMIN1_ID, ADMIN2_ID]:
         return
+
     if not context.args or not context.args[0].isdigit():
         await update.message.reply_text(
-            "Usage: /deleteid <number>\nUse /listids to see numbers."
+            "Usage: `/deleteid <number>`\n"
+            "Use /listids to see ID numbers.",
+            parse_mode="Markdown"
         )
         return
+
     index = int(context.args[0]) - 1
     data  = load_ids()
+
     if index < 0 or index >= len(data):
-        await update.message.reply_text("Invalid number.")
+        await update.message.reply_text("❌ Invalid ID number.")
         return
+
     removed = data.pop(index)
     save_ids(data)
+
     await update.message.reply_text(
-        f"Deleted: Level {removed['level']} | {removed['tier']} | Rs.{removed['price']}"
+        f"✅ *Deleted:* Level {removed['level']} | "
+        f"{removed['tier']} | ₹{removed['price']}",
+        parse_mode="Markdown"
     )
 
 
 # ==========================================
-# UNKNOWN MESSAGE in CHOOSING state
+# FALLBACK — any random message → menu
 # ==========================================
 
-async def unknown_in_choosing(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await show_menu_message(update.message)
+async def any_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await show_main_menu(update.message, context)
     return CHOOSING
 
 
@@ -439,41 +476,33 @@ async def unknown_in_choosing(update: Update, context: ContextTypes.DEFAULT_TYPE
 # ==========================================
 
 def main():
-    print(f"Starting {SHOP_NAME} Bot...")
+    print(f"🚀 {SHOP_NAME} Bot starting...")
 
     app = Application.builder().token(BOT_TOKEN).build()
 
     conv = ConversationHandler(
         entry_points=[
             CommandHandler("start", start),
+            MessageHandler(filters.TEXT & ~filters.COMMAND, start),
         ],
         states={
             CHOOSING: [
                 CallbackQueryHandler(menu_handler),
-                MessageHandler(
-                    filters.TEXT & ~filters.COMMAND,
-                    unknown_in_choosing
-                ),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, any_message),
             ],
             BUY_BUDGET: [
-                MessageHandler(
-                    filters.TEXT & ~filters.COMMAND,
-                    buy_budget
-                ),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, buy_budget),
                 CallbackQueryHandler(menu_handler),
             ],
             ADMIN_ADD: [
-                MessageHandler(
-                    filters.TEXT & ~filters.COMMAND,
-                    save_new_id
-                ),
+                MessageHandler(filters.TEXT & ~filters.COMMAND, save_new_id),
             ],
         },
         fallbacks=[
             CommandHandler("start", start),
+            MessageHandler(filters.ALL, start),
         ],
-        allow_reentry=False,
-        per_message=False,
+        allow_reentry=True,
     )
 
     app.add_handler(conv)
@@ -481,7 +510,7 @@ def main():
     app.add_handler(CommandHandler("listids",  list_ids))
     app.add_handler(CommandHandler("deleteid", delete_id))
 
-    print(f"{SHOP_NAME} Bot is live!")
+    print(f"✅ {SHOP_NAME} Bot is live!")
     app.run_polling(drop_pending_updates=True)
 
 
