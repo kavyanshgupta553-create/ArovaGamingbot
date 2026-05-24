@@ -18,11 +18,13 @@ from telegram.ext import (
 
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "8471398768:AAHp6XunmwnCrMKPrnKMsxK6Zw2C-Di9ymM")
 
-ADMIN1_ID       = 7428034309
-ADMIN1_USERNAME = "Kavyanshh2009"
+ADMIN1_ID        = 7428034309
+ADMIN1_USERNAME  = "Kavyanshh2009"
 
-ADMIN2_ID       = 7879442639
-ADMIN2_USERNAME = "Aayushrajput14"
+ADMIN2_ID        = 7879442639
+ADMIN2_USERNAME  = "Aayushrajput14"
+
+DATABASE_CHANNEL = -1003788879952  # ArovaBotDatabase
 
 SHOP_NAME = "Arova Gaming"
 
@@ -32,13 +34,12 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# States
 CHOOSING   = 1
 BUY_BUDGET = 2
 ADMIN_ADD  = 3
 
 # ==========================================
-# DATABASE
+# DATABASE — sample IDs as fallback
 # ==========================================
 
 SAMPLE_IDS = [
@@ -89,7 +90,7 @@ SAMPLE_IDS = [
     },
 ]
 
-DB_FILE = "ids.json"
+DB_FILE    = "ids.json"
 _ids_cache = None
 
 
@@ -118,6 +119,42 @@ def save_ids(data):
             json.dump(data, f, indent=4)
     except Exception as e:
         logger.warning(f"Could not save: {e}")
+
+
+# ==========================================
+# CHANNEL POST PARSER
+# Caption format:
+# Price: 2500
+# Level: 72
+# Tier: Platinum III
+# Skins: M416 Glacier
+# Outfits: 4 Legendary
+# UC: 12000
+# ==========================================
+
+def parse_caption(caption):
+    if not caption:
+        return None
+    data = {}
+    for line in caption.strip().split("\n"):
+        if ":" in line:
+            key, _, val = line.partition(":")
+            data[key.strip().lower()] = val.strip()
+    price_str = data.get("price", "")
+    if not price_str:
+        return None
+    try:
+        price = int("".join(filter(str.isdigit, price_str)))
+    except Exception:
+        return None
+    return {
+        "price":   price,
+        "level":   data.get("level", "N/A"),
+        "tier":    data.get("tier", "N/A"),
+        "skins":   data.get("skins", "N/A"),
+        "outfits": data.get("outfits", "N/A"),
+        "uc":      data.get("uc", "N/A"),
+    }
 
 
 # ==========================================
@@ -179,7 +216,7 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "🛒 Buy a BGMI ID\n\n"
             "Enter your budget in rupees (numbers only)\n\n"
             "Example: 2000\n\n"
-            "We will show IDs at your budget and up to Rs.500 above!"
+            "We will show IDs from Rs.500 below to Rs.500 above your budget!"
         )
         return BUY_BUDGET
 
@@ -236,6 +273,7 @@ async def menu_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ==========================================
 # BUY — budget handler
+# Shows channel IDs first, then sample IDs
 # ==========================================
 
 async def buy_budget(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -244,18 +282,31 @@ async def buy_budget(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not text.isdigit():
         await update.message.reply_text(
             "Please enter numbers only!\n"
-            "Example: 2000\n\n"
-            "Try again 👇"
+            "Example: 2000\n\nTry again 👇"
         )
         return BUY_BUDGET
 
     budget = int(text)
+    lower  = max(0, budget - 500)
     upper  = budget + 500
-    ids    = load_ids()
 
-    matched = [i for i in ids if i["price"] <= upper]
+    # Channel IDs (with multiple photos/videos)
+    channel_posts = context.bot_data.get("channel_posts", [])
+    channel_matched = [
+        p for p in channel_posts
+        if lower <= p["price"] <= upper
+    ]
 
-    if not matched:
+    # Sample/addid IDs (fallback)
+    local_ids = load_ids()
+    local_matched = [
+        i for i in local_ids
+        if lower <= i["price"] <= upper
+    ]
+
+    total = len(channel_matched) + len(local_matched)
+
+    if total == 0:
         kb = [
             [InlineKeyboardButton(
                 f"💬  Contact @{ADMIN1_USERNAME}",
@@ -264,24 +315,46 @@ async def buy_budget(update: Update, context: ContextTypes.DEFAULT_TYPE):
             [InlineKeyboardButton("🔙  Main Menu", callback_data="back")],
         ]
         await update.message.reply_text(
-            f"No IDs available for Rs.{budget} right now.\n\n"
+            f"❌ No IDs available in this budget!\n\n"
+            f"Range: Rs.{lower} — Rs.{upper}\n\n"
             "Contact admin for a custom deal!",
             reply_markup=InlineKeyboardMarkup(kb),
         )
         return CHOOSING
 
     await update.message.reply_text(
-        f"Found {len(matched)} ID(s) for you!\n"
-        f"Budget: Rs.{budget} | Showing up to Rs.{upper}\n\n"
+        f"✅ Found {total} ID(s) for you!\n"
+        f"Range: Rs.{lower} — Rs.{upper}\n\n"
         "Check details below 👇"
     )
 
-    for item in matched:
-        is_stretch = item["price"] > budget
-        tag = "Just Above Budget — Great Value!\n\n" if is_stretch else ""
+    kb_contact = [[InlineKeyboardButton(
+        "🔥  Interested — Contact Admin",
+        url=f"https://t.me/{ADMIN1_USERNAME}"
+    )]]
 
-        text_card = (
-            f"{tag}"
+    # Show channel IDs first (multiple photos/videos)
+    for post in channel_matched:
+        try:
+            await context.bot.forward_message(
+                chat_id=update.effective_chat.id,
+                from_chat_id=DATABASE_CHANNEL,
+                message_id=post["message_id"],
+            )
+            await update.message.reply_text(
+                f"💰 Price: Rs.{post['price']}",
+                reply_markup=InlineKeyboardMarkup(kb_contact),
+            )
+        except Exception as e:
+            logger.warning(f"Forward failed: {e}")
+            await update.message.reply_text(
+                f"BGMI ID\nLevel: {post['level']} | Tier: {post['tier']}\nPrice: Rs.{post['price']}",
+                reply_markup=InlineKeyboardMarkup(kb_contact),
+            )
+
+    # Show local IDs
+    for item in local_matched:
+        card = (
             f"BGMI Account — {SHOP_NAME}\n"
             f"====================\n"
             f"Level    : {item['level']}\n"
@@ -292,31 +365,25 @@ async def buy_budget(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"Price    : Rs.{item['price']}\n"
             f"===================="
         )
-
-        kb = [[InlineKeyboardButton(
-            "🔥  Interested — Contact Admin",
-            url=f"https://t.me/{ADMIN1_USERNAME}"
-        )]]
-
         photo = item.get("photo")
         if photo:
             try:
                 await update.message.reply_photo(
                     photo=photo,
-                    caption=text_card,
-                    reply_markup=InlineKeyboardMarkup(kb),
+                    caption=card,
+                    reply_markup=InlineKeyboardMarkup(kb_contact),
                 )
                 continue
             except Exception as e:
                 logger.warning(f"Photo failed: {e}")
 
         await update.message.reply_text(
-            text_card,
-            reply_markup=InlineKeyboardMarkup(kb),
+            card,
+            reply_markup=InlineKeyboardMarkup(kb_contact),
         )
 
     await update.message.reply_text(
-        f"Pick your favourite ID and contact admin!\n"
+        f"Pick your favourite and contact admin!\n"
         f"{SHOP_NAME} — India's Trusted BGMI Store",
         reply_markup=InlineKeyboardMarkup(
             [[InlineKeyboardButton("🔙  Main Menu", callback_data="back")]]
@@ -326,14 +393,72 @@ async def buy_budget(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ==========================================
+# CHANNEL POST LISTENER
+# When admin posts in ArovaBotDatabase,
+# bot saves it automatically
+# ==========================================
+
+async def channel_post_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    msg = update.channel_post
+    if not msg or msg.chat.id != DATABASE_CHANNEL:
+        return
+
+    caption = msg.caption or msg.text or ""
+    parsed  = parse_caption(caption)
+    if not parsed:
+        return
+
+    if "channel_posts" not in context.bot_data:
+        context.bot_data["channel_posts"] = []
+
+    existing = [p["message_id"] for p in context.bot_data["channel_posts"]]
+    if msg.message_id in existing:
+        return
+
+    context.bot_data["channel_posts"].append({
+        "message_id": msg.message_id,
+        "price":      parsed["price"],
+        "level":      parsed["level"],
+        "tier":       parsed["tier"],
+        "skins":      parsed["skins"],
+        "outfits":    parsed["outfits"],
+        "uc":         parsed["uc"],
+    })
+    logger.info(f"Channel ID saved: Rs.{parsed['price']} | {parsed['tier']}")
+
+
+async def channel_post_edited(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    msg = update.edited_channel_post
+    if not msg or msg.chat.id != DATABASE_CHANNEL:
+        return
+
+    caption = msg.caption or msg.text or ""
+    parsed  = parse_caption(caption)
+
+    posts = context.bot_data.get("channel_posts", [])
+    context.bot_data["channel_posts"] = [
+        p for p in posts if p["message_id"] != msg.message_id
+    ]
+    if parsed:
+        context.bot_data["channel_posts"].append({
+            "message_id": msg.message_id,
+            "price":      parsed["price"],
+            "level":      parsed["level"],
+            "tier":       parsed["tier"],
+            "skins":      parsed["skins"],
+            "outfits":    parsed["outfits"],
+            "uc":         parsed["uc"],
+        })
+    logger.info(f"Channel ID updated: msg_id {msg.message_id}")
+
+
+# ==========================================
 # ADMIN COMMANDS
 # ==========================================
 
 async def add_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id not in [ADMIN1_ID, ADMIN2_ID]:
-        await update.message.reply_text("You are not authorized.")
-        return ConversationHandler.END
-
+        return
     await update.message.reply_text(
         "Send ID details in this format:\n\n"
         "Level|Tier|Skins|Outfits|UC|Price\n\n"
@@ -347,7 +472,6 @@ async def add_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def save_new_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id not in [ADMIN1_ID, ADMIN2_ID]:
         return CHOOSING
-
     try:
         parts = update.message.text.strip().split("|")
         if len(parts) != 6:
@@ -379,8 +503,7 @@ async def save_new_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
         save_ids(data)
 
         await update.message.reply_text(
-            f"ID Added Successfully!\n"
-            f"Level: {level} | Tier: {tier} | Rs.{price}"
+            f"✅ ID Added!\nLevel: {level} | Tier: {tier} | Rs.{price}"
         )
         return CHOOSING
 
@@ -396,12 +519,17 @@ async def list_ids(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id not in [ADMIN1_ID, ADMIN2_ID]:
         return
     data = load_ids()
-    if not data:
-        await update.message.reply_text("No IDs in database.")
-        return
+    channel_posts = context.bot_data.get("channel_posts", [])
     msg = f"{SHOP_NAME} — All IDs\n\n"
-    for i, item in enumerate(data, 1):
-        msg += f"{i}. Rs.{item['price']} | {item['tier']} | Level {item['level']}\n"
+    if channel_posts:
+        msg += "📸 Channel IDs:\n"
+        for i, p in enumerate(channel_posts, 1):
+            msg += f"{i}. Rs.{p['price']} | {p['tier']} | Level {p['level']}\n"
+        msg += "\n"
+    if data:
+        msg += "📋 Local IDs:\n"
+        for i, item in enumerate(data, 1):
+            msg += f"{i}. Rs.{item['price']} | {item['tier']} | Level {item['level']}\n"
     await update.message.reply_text(msg)
 
 
@@ -426,7 +554,7 @@ async def delete_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 # ==========================================
-# UNKNOWN MESSAGE in CHOOSING state
+# UNKNOWN MESSAGE
 # ==========================================
 
 async def unknown_in_choosing(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -481,8 +609,21 @@ def main():
     app.add_handler(CommandHandler("listids",  list_ids))
     app.add_handler(CommandHandler("deleteid", delete_id))
 
+    # Channel listeners
+    app.add_handler(MessageHandler(
+        filters.UpdateType.CHANNEL_POSTS,
+        channel_post_handler,
+    ))
+    app.add_handler(MessageHandler(
+        filters.UpdateType.EDITED_CHANNEL_POSTS,
+        channel_post_edited,
+    ))
+
     print(f"{SHOP_NAME} Bot is live!")
-    app.run_polling(drop_pending_updates=True)
+    app.run_polling(
+        drop_pending_updates=True,
+        allowed_updates=Update.ALL_TYPES,
+    )
 
 
 if __name__ == "__main__":
