@@ -16,7 +16,7 @@ from telegram.ext import (
 #        AROVA GAMING — BGMI ID BOT
 # ==========================================
 
-BOT_TOKEN = os.environ.get("BOT_TOKEN", "8471398768:AAHp6XunmwnCrMKPrnKMsxK6Zw2C-Di9ymM")
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "PASTE_YOUR_TOKEN_HERE")
 
 ADMIN1_ID       = 7428034309      # Buying + Help
 ADMIN1_USERNAME = "Kavyanshh2009"
@@ -516,4 +516,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-        
